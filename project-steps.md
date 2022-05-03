@@ -128,3 +128,53 @@ You will need TLS certificates to handle secured connectivity to your Applicatio
 - Use DNS to validate the domain name
 - Tag the resource
 
+### CONFIGURE APPLICATION LOAD BALANCER (ALB)
+#### Application Load Balancer To Route Traffic To NGINX
+- Create an Internet facing ALB
+- Ensure that it listens on HTTPS protocol (TCP port 443)
+- Ensure the ALB is created within the appropriate VPC | AZ | Subnets
+- Choose the Certificate from ACM
+- Select Security Group
+- Select Nginx Instances as the target group
+
+### Application Load Balancer To Route Traffic To Web Servers
+- Create an Internal ALB
+- Ensure that it listens on HTTPS protocol (TCP port 443)
+- Ensure the ALB is created within the appropriate VPC | AZ | Subnets
+- Choose the Certificate from ACM
+- Select Security Group
+- Select webserver Instances as the target group
+- Ensure that health check passes for the target group
+
+#### NOTE: This process must be repeated for both WordPress and Tooling websites.
+
+### Setup EFS
+- Create an EFS filesystem
+- Create an EFS mount target per AZ in the VPC, associate it with both subnets dedicated for data layer
+- Associate the Security groups created earlier for data layer.
+- Create an EFS access point. (Give it a name and leave all other settings as default)
+
+### Setup RDS
+Pre-requisite: Create a KMS key from Key Management Service (KMS) to be used to encrypt the database instance.
+
+To configure RDS, follow steps below:
+- Create a subnet group and add 2 private subnets (data Layer)
+- Create an RDS Instance for mysql 8.*.*
+- To satisfy our architectural diagram, you will need to select either Dev/Test or Production Sample Template. But to minimize AWS cost, you can select the Do not create a standby instance option under Availability & durability sample template (The production template will enable Multi-AZ deployment)
+- Configure other settings accordingly (For test purposes, most of the default settings are good to go). In the real world, you will need to size the database appropriately. You will need to get some information about the usage. If it is a highly transactional database that grows at 10GB weekly, you must bear that in mind while configuring the initial storage allocation, storage autoscaling, and maximum storage threshold.
+- Configure VPC and security (ensure the database is not available from the Internet)
+- Configure backups and retention
+- Encrypt the database using the KMS key created earlier
+- Enable CloudWatch monitoring and export Error and Slow Query logs (for production, also include Audit)
+
+### Configuring DNS with Route53
+You need to ensure that the main domain for the WordPress website can be reached, and the subdomain for Tooling website can also be reached using a browser.
+- Create other records such as CNAME, alias and A records.
+
+NOTE: You can use either CNAME or alias records to achieve the same thing. But alias record has better functionality because it is a faster to resolve DNS record, and can coexist with other records on that name. 
+
+- Create an alias record for the root domain and direct its traffic to the ALB DNS name.
+- Create an alias record for tooling.<yourdomain>.com and direct its traffic to the ALB DNS name.
+
+
+
