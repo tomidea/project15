@@ -13,3 +13,118 @@
   - Application Load Balancer: ALB will be available from the Internet
   - Webservers: Access to Webservers should only be allowed from the Nginx servers. Since we do not have the servers created yet, just put some dummy records as a place holder, we will update it later.
   - Data Layer: Access to the Data layer, which is comprised of Amazon Relational Database Service (RDS) and Amazon Elastic File System (EFS) must be carefully desinged – only webservers should be able to connect to RDS, while Nginx and Webservers will have access to EFS Mountpoint.
+
+## Proceed With Compute Resources
+
+#### Set Up Compute Resources for Nginx
+1. Create an EC2 Instance based on CentOS Amazon Machine Image (AMI) in any 2 Availability Zones (AZ) in any AWS Region (it is recommended to use the Region that is closest to your customers). Use EC2 instance of T2 family (e.g. t2.micro or similar)
+
+2. Ensure that it has the following software installed:
+python
+ntp
+net-tools
+vim
+wget
+telnet
+epel-release
+htop
+
+3. Create an AMI out of the EC2 instance
+
+Prepare Launch Template For Nginx (One Per Subnet)
+- Make use of the AMI to set up a launch template
+- Ensure the Instances are launched into a public subnet
+- Assign appropriate security group
+- Configure Userdata to update yum package repository and install nginx
+
+Configure Target Groups
+- Select Instances as the target type
+- Ensure the protocol HTTPS on secure TLS port 443
+- Ensure that the health check path is /healthstatus
+- Register Nginx Instances as targets
+- Ensure that health check passes for the target group
+ 
+Configure Autoscaling For Nginx
+- Select the right launch template
+- Select the VPC
+- Select both public subnets
+- Enable Application Load Balancer for the AutoScalingGroup (ASG)
+- Select the target group you created before
+- Ensure that you have health checks for both EC2 and ALB
+- The desired capacity is 2
+- Minimum capacity is 2
+- Maximum capacity is 4
+- Set scale out if CPU utilization reaches 90%
+- Ensure there is an SNS topic to send scaling notifications
+
+#### Set Up Compute Resources for Bastion
+
+Provision the EC2 Instances for Bastion
+1. Create an EC2 Instance based on CentOS Amazon Machine Image (AMI) per each Availability Zone in the same Region and same AZ where you created Nginx server
+2. Ensure that it has the following software installed
+python
+ntp
+net-tools
+vim
+wget
+telnet
+epel-release
+htop
+3. Associate an Elastic IP with each of the Bastion EC2 Instances
+4. Create an AMI out of the EC2 instance
+5. Prepare Launch Template For Bastion (One per subnet)
+- Make use of the AMI to set up a launch template
+- Ensure the Instances are launched into a public subnet
+- Assign appropriate security group
+- Configure Userdata to update yum package repository and install Ansible and git
+
+6. Configure Target Groups
+- Select Instances as the target type
+- Ensure the protocol is TCP on port 22
+- Register Bastion Instances as targets
+- Ensure that health check passes for the target group
+
+7. Configure Autoscaling For Bastion
+- Select the right launch template
+- Select the VPC
+- Select both public subnets
+- Enable Application Load Balancer for the AutoScalingGroup (ASG)
+- Select the target group you created before
+- Ensure that you have health checks for both EC2 and ALB
+- The desired capacity is 2
+- Minimum capacity is 2
+- Maximum capacity is 4
+- Set scale out if CPU utilization reaches 90%
+- Ensure there is an SNS topic to send scaling notifications
+
+#### Set Up Compute Resources for Webservers
+Provision the EC2 Instances for Webservers
+
+Now, you will need to create 2 separate launch templates for both the WordPress and Tooling websites
+
+1. Create an EC2 Instance (Centos) each for WordPress and Tooling websites per Availability Zone (in the same Region).
+2. Ensure that it has the following software installed
+- python
+- ntp
+- net-tools
+- vim
+- wget
+- telnet
+- epel-release
+- htop
+- php
+
+3. Create an AMI out of the EC2 instance
+Prepare Launch Template For Webservers (One per subnet)
+- Make use of the AMI to set up a launch template
+- Ensure the Instances are launched into a public subnet
+- Assign appropriate security group
+- Configure Userdata to update yum package repository and install wordpress (Only required on the WordPress launch template)
+
+#### TLS Certificates From Amazon Certificate Manager (ACM)
+You will need TLS certificates to handle secured connectivity to your Application Load Balancers (ALB).
+- Navigate to AWS ACM
+- Request a public wildcard certificate for the domain name you registered in Freenom
+- Use DNS to validate the domain name
+- Tag the resource
+
